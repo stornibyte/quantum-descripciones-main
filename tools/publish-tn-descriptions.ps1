@@ -9,7 +9,8 @@ param(
   [string]$OnlyIds = '',
   [int]$Limit = 0,
   [int]$DelayMs = 250,
-  [switch]$PullBack
+  [switch]$PullBack,
+  [switch]$DryRun   # 16/10: muestra que mandaria cada ficha (lo que hay en qh_tn_description_raw) sin publicar nada
 )
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_xmlrpc-lib.ps1"
@@ -38,6 +39,22 @@ function Invoke-Method($model,$method,$id){
   Invoke-XmlRpc $object 'execute_kw' $p
 }
 
+# Que hay hoy en Odoo: el push manda qh_tn_description_raw tal cual a TN
+function Get-TipoRaw($id){
+  $idList = New-Object System.Collections.Generic.List[object]; $idList.Add([int]$id)
+  $args = New-Object System.Collections.Generic.List[object]; $args.Add($idList)
+  $p = New-Object System.Collections.Generic.List[object]
+  foreach($x in @($Database,$uid,$Secret,'product.template','read')){ $p.Add($x) }
+  $p.Add($args); $p.Add(@{ fields = @('qh_tn_description_raw') })
+  $r = @(Invoke-XmlRpc $object 'execute_kw' $p)
+  if (-not $r -or -not ($r[0] -is [hashtable])) { return 'no existe' }
+  $raw = $r[0]['qh_tn_description_raw']
+  if ($raw -isnot [string] -or -not $raw) { return 'vacio' }
+  if ($raw -match 'data-qd-version') { return 'bloque nuevo' }
+  if ($raw -match '<iframe') { return 'iframe' }
+  return 'otro HTML'
+}
+
 $pushed=0; $pulled=0; $fail=0; $skip=0
 foreach($it in $items){
   if ($OnlyMatched -and -not $it.Matched) { $skip++; continue }
@@ -45,6 +62,14 @@ foreach($it in $items){
   if (-not $id) { $skip++; continue }
   if ($idFilter -and ($id -notin $idFilter)) { $skip++; continue }
   if ($Limit -gt 0 -and $pushed -ge $Limit) { $skip++; continue }
+
+  if ($DryRun) {
+    $t = Get-TipoRaw $id
+    if ($t -eq 'no existe') { Write-Warning ("NO EXISTE product.template:{0} ({1})" -f $id, $it.Title); $fail++; continue }
+    if ($t -eq 'vacio') { Write-Output ("DRYRUN omitiria {0}: Odoo esta vacio (el push rechaza vacio)  ({1})" -f $id, $it.Title); $skip++; continue }
+    Write-Output ("DRYRUN mandaria a TN {0}: {1}  ({2})" -f $id, $t, $it.Title)
+    $pushed++; continue
+  }
 
   try {
     Invoke-Method 'product.template' 'action_qh_tn_push_description' $id | Out-Null
@@ -62,3 +87,4 @@ foreach($it in $items){
 }
 Write-Output ""
 Write-Output ("== Resumen == push:{0} pull:{1} fallos:{2} omitidos:{3}" -f $pushed,$pulled,$fail,$skip)
+if ($DryRun) { Write-Output "(DryRun: no se publico nada en TN)" }

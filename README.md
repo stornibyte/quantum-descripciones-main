@@ -34,6 +34,7 @@ Automatizacion operativa: **`AUTOMATION.md`**.
 > Quantum con los datos reales de cada ficha). `apply-odoo-iframes.ps1` **nunca la pisa con el iframe**: esas fichas salen como
 > `OMITIDO … ya tiene la descripcion nueva`. Si un manifest trae el campo `html` en un item, se escribe ese HTML en lugar del
 > iframe. El `-DryRun` muestra, ficha por ficha, qué hay hoy (vacío / iframe / bloque nuevo / otro HTML) y qué escribiría.
+> `publish-tn-descriptions.ps1` manda a TN lo que haya en Odoo; con `-DryRun` muestra qué mandaría cada ficha sin publicar.
 
 ## Repo hermano
 
