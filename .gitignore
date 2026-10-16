@@ -1,0 +1,5 @@
+# Archivos locales de entorno y temporales de las herramientas: no se suben por error
+tools/_*.ps1
+*env*.ps1
+# la librería XML-RPC sí es parte del repo
+!tools/_xmlrpc-lib.ps1
